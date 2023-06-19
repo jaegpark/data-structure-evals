@@ -1,11 +1,11 @@
-from ..base_memory import Memory
+from knowledge_graph import KnowledgeGraphMemory
 from transformers import pipeline, AutoTokenizer, DistilBertForTokenClassification
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
 
-class EndToEndKG(Memory):
+class EndToEndKG(KnowledgeGraphMemory):
     """
     Class for an end-to-end construction of a knowledge graph.
     End to End means there is a singular language model that extracts triplets tuples from the text.
@@ -25,7 +25,7 @@ class EndToEndKG(Memory):
             self.triplet_extractor = pipeline('text2text-generation', model=model, tokenizer=tokenizer)
             self.extracted_text = self.triplet_extractor.tokenizer.batch_decode([self.triplet_extractor(text, return_tensors=True, return_text=False)[0]["generated_token_ids"]])
         else:
-            print("No pipelines supported yet.")
+            print("No other pipelines supported yet.")
         
         self.triplets = self.extract_triplets(self.extracted_text[0])
         self.graph = self.create_knowledge_graph(self.triplets)
@@ -47,6 +47,13 @@ class EndToEndKG(Memory):
         return G
 
 
+    def find_related_triplets(self, keyword):
+        related_triplets = []
+        for edge in self.graph.edges(data=True):
+            if keyword.lower() in edge[0].lower() or keyword.lower() in edge[1].lower():
+                related_triplets.append((edge[0], edge[2]['relation'], edge[1]))
+        return related_triplets
+    
     def extract_triplets(self, text):
         triplets = []
         relation, subject, relation, object_ = '', '', '', ''
@@ -79,7 +86,7 @@ class EndToEndKG(Memory):
         # triplets: list of dicts, each dict has 3 keys: head, type, tail
         return triplets
     
-    def visualize_knowledge_graph(self):
+    def visualize(self):
         plt.figure(figsize=(10,10))
 
         pos = nx.spring_layout(self.graph)
@@ -104,11 +111,6 @@ class EndToEndKG(Memory):
     
         return context
     
-    def find_related_triplets(self, keyword):
-        related_triplets = []
-        for edge in self.graph.edges(data=True):
-            if keyword.lower() in edge[0].lower() or keyword.lower() in edge[1].lower():
-                related_triplets.append((edge[0], edge[2]['relation'], edge[1]))
-        return related_triplets
+    
         
     
