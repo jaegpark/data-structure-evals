@@ -1,4 +1,4 @@
-from knowledge_graph import *
+from .knowledge_graph import *
 from transformers import BertForTokenClassification, BertTokenizer
 from nltk.tag import StanfordNERTagger
 from dotenv import load_dotenv
@@ -60,12 +60,24 @@ class StagedKG(KnowledgeGraphMemory):
             print ("Finished RE")
             print ("RELATIONS: ", self.relations)
 
-            self.create(text=self.text)
-            self.save_graph("test_graph.pkl")
+            self.create()
+            self.save_graph("evals/memory/extractions/graphs/", "end_to_end_graph")
             print ("Saved Graph")
         else:
-            self.load_graph("test_graph.pkl")
-            self.visualize_graph()
+            self.load_graph("evals/memory/extractions/graphs/", "end_to_end_graph")
+            self.visualize()
+            #print (self.graph.get_edge_data("Napoleon", "the French Republic")["relation"])
+            print (self.graph.nodes())
+
+            edge_data = self.graph.get_edge_data("Napoleon", "the French Republic")
+
+            if edge_data is not None:
+                if 'relation' in edge_data:
+                    print(edge_data["relation"])
+                else:
+                    print("'relation' not found in edge data")
+            else:
+                print("There is no edge between 'Napoleon' and 'the French Republic'")
 
     # Helper functions
     @staticmethod
@@ -106,15 +118,6 @@ class StagedKG(KnowledgeGraphMemory):
 
         return combined_entities
 
-    def save_graph(self, filename):
-        with open(filename, 'wb') as file:
-            pickle.dump(self.graph, file)
-
-    def load_graph(self, filename):
-        with open(filename, 'rb') as file:
-            self.graph = pickle.load(file)
-        
-
     # NER methods
     def spacy_ner(self):
         nlp = spacy.load("en_core_web_sm")
@@ -136,7 +139,6 @@ class StagedKG(KnowledgeGraphMemory):
         self.ner_entities = [(entity, label.split('-')[1] if '-' in label else label) for entity, label in entities]
         # optional step to combine subwords into single entities
         # self.ner_entities = self.combine_subwords(entities)
-
 
     def core_nlp_ner(self):
         stanford_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
@@ -169,27 +171,14 @@ class StagedKG(KnowledgeGraphMemory):
 
 
     # Parent Graph methods
-    def create(self, text):
+    def create(self):
         self.graph = nx.Graph()
 
         for entity, label in self.ner_entities:
             self.graph.add_node(entity, label=label)
 
         for entity1, entity2, relation in self.relations:
-            self.graph.add_edge(entity1, entity2, label=relation)
+            self.graph.add_edge(entity1, entity2, relation=relation)
     
-    def sample(self, query):
-        pass
-
-    def visualize(self):
-        fig, ax = plt.subplots(figsize=(10,10))
-        plt.figure(figsize=(10,10))
-        pos = nx.spring_layout(self.graph)
-        nx.draw(self.graph, pos, with_labels=True, font_weight='bold')
-        labels = nx.get_edge_attributes(self.graph, 'label')
-        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=labels)
-        plt.show()
-
-
-
+    
 kg = StagedKG(text=test_text, NER="Spacy", RE="GPT3", load=True)
